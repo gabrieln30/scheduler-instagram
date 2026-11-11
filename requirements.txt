@@ -7,3 +7,4 @@ apscheduler
 python-multipart
 python-dotenv
 cryptography
+Pillow

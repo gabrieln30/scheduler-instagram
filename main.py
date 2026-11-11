@@ -1,6 +1,3 @@
-import os
-import shutil
-import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
@@ -17,12 +14,11 @@ from sqlalchemy.orm import Session
 from database import Base, engine, get_db
 from models import Conta, Post
 from oauth import router as oauth_router
-from scheduler import start_scheduler
+from scheduler import start_scheduler, agendar_post, cancelar_agendamento
+from storage import salvar_imagem, ImagemInvalida
 
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")  # no Render: disco persistente
-PUBLIC_BASE_URL = os.environ["PUBLIC_BASE_URL"].rstrip("/")
 TZ_LOCAL = ZoneInfo("America/Sao_Paulo")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+MAX_BYTES = 8 * 1024 * 1024
 
 
 @asynccontextmanager
@@ -30,18 +26,16 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)
     sched = start_scheduler()
     yield
-    sched.shutdown()
+    sched.shutdown(wait=False)
 
 
 app = FastAPI(title="Instagram Scheduler", lifespan=lifespan)
 app.include_router(oauth_router)
-# Em producao, troque por S3/Cloudinary: discos do Render sao efemeros.
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/health", include_in_schema=False)
 def health():
-    return {"ok": True}
+    return {"ok": True}  # nao toca no banco: o pinger nao deve acordar o Postgres
 
 
 @app.get("/", include_in_schema=False)
@@ -65,12 +59,13 @@ def desconectar_conta(conta_id: int, db: Session = Depends(get_db)):
     c.ativa = False
     for p in db.query(Post).filter_by(conta_id=c.id, status="agendado"):
         p.status = "cancelado"
+        cancelar_agendamento(p.id)
     db.commit()
     return {"ok": True}
 
 
 @app.post("/posts")
-async def criar_post(
+def criar_post(  # 'def' (nao async): roda em thread, pois o upload bloqueia
     conta_id: int = Form(...),
     legenda: str = Form(""),
     agendado_para: Optional[datetime] = Form(None),  # vazio = publicar agora
@@ -81,22 +76,28 @@ async def criar_post(
     if not conta or not conta.ativa:
         raise HTTPException(404, "Conta nao encontrada ou desconectada")
     if imagem.content_type not in ("image/jpeg", "image/png"):
-        raise HTTPException(400, "Use JPEG ou PNG (a API do Instagram prefere JPEG)")
+        raise HTTPException(400, "Use uma imagem JPEG ou PNG")
+
+    conteudo = imagem.file.read()
+    if len(conteudo) > MAX_BYTES:
+        raise HTTPException(400, "A imagem passa de 8 MB")
 
     quando = agendado_para or datetime.now(timezone.utc)
     if quando.tzinfo is None:                      # sem fuso = horario de Brasilia
         quando = quando.replace(tzinfo=TZ_LOCAL)
     quando = quando.astimezone(timezone.utc)
 
-    ext = "jpg" if imagem.content_type == "image/jpeg" else "png"
-    nome = f"{uuid.uuid4().hex}.{ext}"
-    with open(os.path.join(UPLOAD_DIR, nome), "wb") as f:
-        shutil.copyfileobj(imagem.file, f)
+    try:
+        url = salvar_imagem(conteudo, imagem.filename or "imagem")
+    except ImagemInvalida as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(502, f"Falha ao enviar a imagem para o Supabase Storage: {e}")
 
-    p = Post(conta_id=conta_id, legenda=legenda, agendado_para=quando,
-             imagem_url=f"{PUBLIC_BASE_URL}/uploads/{nome}")
+    p = Post(conta_id=conta_id, legenda=legenda, agendado_para=quando, imagem_url=url)
     db.add(p)
     db.commit()
+    agendar_post(p.id, p.agendado_para)
     return {"id": p.id, "status": p.status, "agendado_para": p.agendado_para}
 
 
@@ -117,6 +118,7 @@ def cancelar_post(post_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, f"Nao da para cancelar post com status '{p.status}'")
     p.status = "cancelado"
     db.commit()
+    cancelar_agendamento(p.id)
     return {"ok": True}
 
 

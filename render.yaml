@@ -1,40 +1,34 @@
-databases:
-  - name: igscheduler-db
-    plan: basic-256mb        # confira os nomes de plano no painel do Render
-
+# Plano GRATUITO: sem disco persistente e sem banco do Render
+# (banco = Supabase ou Neon, imagens = Supabase Storage). Veja o passo a passo na conversa.
 services:
   - type: web
-    name: igscheduler        # vira https://igscheduler.onrender.com (se o nome estiver livre)
+    name: igscheduler
     runtime: python
-    plan: starter            # plano pago: o servico nao dorme, entao o agendador roda 24h
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT   # 1 worker so, de proposito
     healthCheckPath: /health
-    disk:                    # guarda as imagens entre deploys (limita a 1 instancia)
-      name: uploads
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
-      - key: DATABASE_URL
-        fromDatabase:
-          name: igscheduler-db
-          property: connectionString
-      - key: UPLOAD_DIR
-        value: /var/data/uploads
       - key: GRAPH_BASE
         value: https://graph.instagram.com/v21.0
       - key: FRONTEND_URL
         value: /painel/
-      # Preencha no painel do Render (o Blueprint pede esses valores):
-      - key: PUBLIC_BASE_URL
-        sync: false          # ex.: https://igscheduler.onrender.com
+      # Preencha no painel do Render:
+      - key: postgresql://postgres.reqfcspulhxyjbrbagmb:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:5432/postgres
+        sync: false          # Supabase: Connect > Session pooler (porta 5432)
       - key: IG_REDIRECT_URI
-        sync: false          # ex.: https://igscheduler.onrender.com/auth/instagram/callback
+        sync: false          # https://SEU-SERVICO.onrender.com/auth/instagram/callback
       - key: IG_APP_ID
         sync: false
       - key: IG_APP_SECRET
         sync: false
       - key: TOKEN_ENCRYPTION_KEY
         sync: false          # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      - key: SUPABASE_URL
+        sync: false          # https://SEU_REF.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false          # chave SECRETA do Supabase (nunca no front-end)
+      - key: SUPABASE_BUCKET
+        value: posts
