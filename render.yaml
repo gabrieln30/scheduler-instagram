@@ -16,7 +16,7 @@ services:
       - key: FRONTEND_URL
         value: /painel/
       # Preencha no painel do Render:
-      - key: postgresql://postgres.reqfcspulhxyjbrbagmb:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:5432/postgres
+      - key: DATABASE_URL
         sync: false          # Supabase: Connect > Session pooler (porta 5432)
       - key: IG_REDIRECT_URI
         sync: false          # https://SEU-SERVICO.onrender.com/auth/instagram/callback
