@@ -72,33 +72,49 @@ def callback(
     code = code.removesuffix("#_")  # a Meta anexa '#_' ao final do code
 
     with httpx.Client(timeout=30) as c:
-        # 1) code -> token de curta duracao (code vale 1h e so pode ser usado 1x)
-        r = c.post("https://api.instagram.com/oauth/access_token", data={
-            "client_id": APP_ID, "client_secret": APP_SECRET,
-            "grant_type": "authorization_code",
-            "redirect_uri": REDIRECT_URI, "code": code,
-        })
-        body = r.json()
-        if r.status_code >= 400:
-            raise HTTPException(400, f"Falha ao trocar o code: {body}")
-        item = body["data"][0] if "data" in body else body  # resposta vem em 'data'
-        perms = item.get("permissions", "")
-        if isinstance(perms, list):
-            perms = ",".join(perms)
-        if perms and "instagram_business_content_publish" not in perms:
-            raise HTTPException(400, "Voce precisa autorizar a permissao de publicar conteudo")
+        if LOGIN_CONFIG_ID:
+            # O code foi emitido pelo Facebook Login for Business, portanto deve
+            # ser trocado no Graph API (e nao em api.instagram.com). A
+            # configuracao selecionada gera um token de usuario do sistema sem
+            # expiracao, restrito aos ativos que ela contem.
+            r = c.get("https://graph.facebook.com/v21.0/oauth/access_token", params={
+                "client_id": APP_ID,
+                "client_secret": APP_SECRET,
+                "redirect_uri": REDIRECT_URI,
+                "code": code,
+            })
+            item = r.json()
+            if r.status_code >= 400:
+                raise HTTPException(400, f"Falha ao trocar o code: {item}")
+            token = item["access_token"]
+            expira = None
+        else:
+            # Fluxo legado do Instagram Login: code -> token curto -> token longo.
+            r = c.post("https://api.instagram.com/oauth/access_token", data={
+                "client_id": APP_ID, "client_secret": APP_SECRET,
+                "grant_type": "authorization_code",
+                "redirect_uri": REDIRECT_URI, "code": code,
+            })
+            body = r.json()
+            if r.status_code >= 400:
+                raise HTTPException(400, f"Falha ao trocar o code: {body}")
+            item = body["data"][0] if "data" in body else body
+            perms = item.get("permissions", "")
+            if isinstance(perms, list):
+                perms = ",".join(perms)
+            if perms and "instagram_business_content_publish" not in perms:
+                raise HTTPException(400, "Voce precisa autorizar a permissao de publicar conteudo")
 
-        # 2) curta -> longa duracao (60 dias)
-        r = c.get("https://graph.instagram.com/access_token", params={
-            "grant_type": "ig_exchange_token",
-            "client_secret": APP_SECRET,
-            "access_token": item["access_token"],
-        })
-        longo = r.json()
-        if r.status_code >= 400:
-            raise HTTPException(400, f"Falha ao gerar token longo: {longo}")
-        token = longo["access_token"]
-        expira = datetime.now(timezone.utc) + timedelta(seconds=longo.get("expires_in", 5184000))
+            r = c.get("https://graph.instagram.com/access_token", params={
+                "grant_type": "ig_exchange_token",
+                "client_secret": APP_SECRET,
+                "access_token": item["access_token"],
+            })
+            longo = r.json()
+            if r.status_code >= 400:
+                raise HTTPException(400, f"Falha ao gerar token longo: {longo}")
+            token = longo["access_token"]
+            expira = datetime.now(timezone.utc) + timedelta(seconds=longo.get("expires_in", 5184000))
 
         # 3) dados da conta
         r = c.get(f"{GRAPH_BASE}/me", params={
@@ -128,6 +144,8 @@ def callback(
 
 def renovar_token(conta: Conta) -> None:
     """Renova o token longo por mais 60 dias (token precisa ter >24h e nao ter expirado)."""
+    if LOGIN_CONFIG_ID:
+        return  # Login for Business gera token de usuario do sistema, sem expiracao.
     r = httpx.get("https://graph.instagram.com/refresh_access_token", params={
         "grant_type": "ig_refresh_token",
         "access_token": decrypt(conta.access_token_enc)}, timeout=30)
