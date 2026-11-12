@@ -24,6 +24,8 @@ services:
         sync: false
       - key: IG_APP_SECRET
         sync: false
+      - key: IG_LOGIN_CONFIG_ID
+        sync: false          # Meta > Instagram API (login unificado) > Identificacao da configuracao
       - key: TOKEN_ENCRYPTION_KEY
         sync: false          # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
       - key: SUPABASE_URL

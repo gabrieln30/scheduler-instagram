@@ -20,6 +20,9 @@ router = APIRouter(prefix="/auth/instagram", tags=["auth"])
 APP_ID = os.environ["IG_APP_ID"]
 APP_SECRET = os.environ["IG_APP_SECRET"]
 REDIRECT_URI = os.environ["IG_REDIRECT_URI"]
+# A configuracao do "Login do Facebook para Empresas" criada no painel da Meta.
+# Sem ela, a Meta exibe a pagina "Esta pagina nao esta disponivel" depois do login.
+LOGIN_CONFIG_ID = os.getenv("IG_LOGIN_CONFIG_ID")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "/painel/")
 GRAPH_BASE = os.getenv("GRAPH_BASE", "https://graph.instagram.com/v21.0")
 SCOPES = "instagram_business_basic,instagram_business_content_publish"
@@ -29,13 +32,24 @@ SCOPES = "instagram_business_basic,instagram_business_content_publish"
 def login():
     """Redireciona o usuario para a tela de autorizacao do Instagram."""
     state = secrets.token_urlsafe(24)
-    url = "https://www.instagram.com/oauth/authorize?" + urlencode({
+    params = {
         "client_id": APP_ID,
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
-        "scope": SCOPES,
         "state": state,
-    })
+    }
+    if LOGIN_CONFIG_ID:
+        # URL equivalente a "URL de login" gerada pelo painel da Meta. As
+        # permissoes pertencem a configuracao, por isso nao enviamos scope aqui.
+        params.update({
+            "config_id": LOGIN_CONFIG_ID,
+            "override_default_response_type": "true",
+        })
+        authorize_url = "https://www.facebook.com/dialog/oauth"
+    else:
+        params["scope"] = SCOPES
+        authorize_url = "https://www.instagram.com/oauth/authorize"
+    url = authorize_url + "?" + urlencode(params)
     resp = RedirectResponse(url)
     resp.set_cookie("ig_oauth_state", state, max_age=600, httponly=True,
                     samesite="lax", secure=REDIRECT_URI.startswith("https"))
