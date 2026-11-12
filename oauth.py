@@ -27,12 +27,22 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "/painel/")
 GRAPH_BASE = os.getenv("GRAPH_BASE", "https://graph.instagram.com/v21.0")
 FB_GRAPH_BASE = os.getenv("FB_GRAPH_BASE", "https://graph.facebook.com/v21.0")
 SCOPES = "instagram_business_basic,instagram_business_content_publish"
+STATE_TTL = timedelta(minutes=10)
+# O Login for Business abre um popup no dominio do Facebook. Guardamos tambem o
+# state no servidor para que a verificacao CSRF nao dependa do navegador enviar
+# o cookie no retorno entre dominios. O Render usa um unico worker.
+_oauth_states: dict[str, datetime] = {}
 
 
 @router.get("/login")
 def login():
     """Redireciona o usuario para a tela de autorizacao do Instagram."""
     state = secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc)
+    _oauth_states[state] = now
+    for saved_state, created_at in list(_oauth_states.items()):
+        if now - created_at > STATE_TTL:
+            _oauth_states.pop(saved_state, None)
     params = {
         "client_id": APP_ID,
         "redirect_uri": REDIRECT_URI,
@@ -52,8 +62,9 @@ def login():
         authorize_url = "https://www.instagram.com/oauth/authorize"
     url = authorize_url + "?" + urlencode(params)
     resp = RedirectResponse(url)
+    secure_cookie = REDIRECT_URI.startswith("https")
     resp.set_cookie("ig_oauth_state", state, max_age=600, httponly=True,
-                    samesite="lax", secure=REDIRECT_URI.startswith("https"))
+                    samesite="none" if secure_cookie else "lax", secure=secure_cookie)
     return resp
 
 
@@ -68,7 +79,11 @@ def callback(
 ):
     if error:
         raise HTTPException(400, error_description or error)
-    if not code or not state or state != request.cookies.get("ig_oauth_state"):
+    created_at = _oauth_states.pop(state, None) if state else None
+    cookie_state = request.cookies.get("ig_oauth_state", "")
+    valid_cookie = bool(state) and secrets.compare_digest(state, cookie_state)
+    valid_server_state = bool(created_at) and datetime.now(timezone.utc) - created_at <= STATE_TTL
+    if not code or not state or not (valid_cookie or valid_server_state):
         raise HTTPException(400, "State invalido ou ausente (possivel CSRF)")
     code = code.removesuffix("#_")  # a Meta anexa '#_' ao final do code
 
