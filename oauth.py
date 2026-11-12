@@ -25,6 +25,7 @@ REDIRECT_URI = os.environ["IG_REDIRECT_URI"]
 LOGIN_CONFIG_ID = os.getenv("IG_LOGIN_CONFIG_ID")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "/painel/")
 GRAPH_BASE = os.getenv("GRAPH_BASE", "https://graph.instagram.com/v21.0")
+FB_GRAPH_BASE = os.getenv("FB_GRAPH_BASE", "https://graph.facebook.com/v21.0")
 SCOPES = "instagram_business_basic,instagram_business_content_publish"
 
 
@@ -117,13 +118,45 @@ def callback(
             expira = datetime.now(timezone.utc) + timedelta(seconds=longo.get("expires_in", 5184000))
 
         # 3) dados da conta
-        r = c.get(f"{GRAPH_BASE}/me", params={
-            "fields": "user_id,username", "access_token": token})
-        perfil = r.json()
-        if r.status_code >= 400:
-            raise HTTPException(400, f"Falha ao ler o perfil: {perfil}")
-        ig_user_id = str(perfil.get("user_id") or item["user_id"])
-        username = perfil.get("username", ig_user_id)
+        if LOGIN_CONFIG_ID:
+            # O token de usuario do sistema e valido no Graph API do Facebook,
+            # nao no host graph.instagram.com. Os IDs das contas permitidas
+            # ficam nas granular scopes da configuracao de login.
+            r = c.get(f"{FB_GRAPH_BASE}/debug_token", params={
+                "input_token": token,
+                "access_token": f"{APP_ID}|{APP_SECRET}",
+            })
+            debug = r.json()
+            if r.status_code >= 400 or not debug.get("data", {}).get("is_valid"):
+                raise HTTPException(400, f"Falha ao validar o token: {debug}")
+
+            target_ids = []
+            for scope in debug["data"].get("granular_scopes", []):
+                if scope.get("scope") in ("instagram_basic", "instagram_content_publish"):
+                    target_ids.extend(scope.get("target_ids") or [])
+            ig_user_id = next(iter(dict.fromkeys(target_ids)), None)
+            if not ig_user_id:
+                raise HTTPException(
+                    400,
+                    "Nenhuma conta Instagram foi autorizada nesta configuracao. "
+                    "Selecione a conta nos ativos da configuracao da Meta e conecte novamente.",
+                )
+
+            r = c.get(f"{FB_GRAPH_BASE}/{ig_user_id}", params={
+                "fields": "id,username", "access_token": token})
+            perfil = r.json()
+            if r.status_code >= 400:
+                raise HTTPException(400, f"Falha ao ler o perfil: {perfil}")
+            ig_user_id = str(perfil["id"])
+            username = perfil.get("username", ig_user_id)
+        else:
+            r = c.get(f"{GRAPH_BASE}/me", params={
+                "fields": "user_id,username", "access_token": token})
+            perfil = r.json()
+            if r.status_code >= 400:
+                raise HTTPException(400, f"Falha ao ler o perfil: {perfil}")
+            ig_user_id = str(perfil.get("user_id") or item["user_id"])
+            username = perfil.get("username", ig_user_id)
 
     conta = db.query(Conta).filter_by(ig_user_id=ig_user_id).first()
     if conta:  # reconectar conta existente

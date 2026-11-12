@@ -2,7 +2,13 @@ import os
 import time
 import httpx
 
-GRAPH_BASE = os.getenv("GRAPH_BASE", "https://graph.instagram.com/v21.0")
+# Tokens emitidos pelo Facebook Login for Business devem publicar no Graph API
+# do Facebook; o fluxo legado de Instagram Login continua no graph.instagram.com.
+GRAPH_BASE = (
+    os.getenv("FB_GRAPH_BASE", "https://graph.facebook.com/v21.0")
+    if os.getenv("IG_LOGIN_CONFIG_ID")
+    else os.getenv("GRAPH_BASE", "https://graph.instagram.com/v21.0")
+)
 
 
 def _check(r: httpx.Response) -> dict:
