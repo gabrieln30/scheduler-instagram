@@ -23,6 +23,10 @@ REDIRECT_URI = os.environ["IG_REDIRECT_URI"]
 # A configuracao do "Login do Facebook para Empresas" criada no painel da Meta.
 # Sem ela, a Meta exibe a pagina "Esta pagina nao esta disponivel" depois do login.
 LOGIN_CONFIG_ID = os.getenv("IG_LOGIN_CONFIG_ID")
+# Opcional no Login for Business: conta Instagram mostrada em Apps conectados.
+# Evita depender de granular_scopes, que alguns tokens de usuario do sistema
+# retornam sem target_ids apesar de possuirem acesso ao ativo.
+IG_USER_ID = os.getenv("IG_USER_ID")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "/painel/")
 GRAPH_BASE = os.getenv("GRAPH_BASE", "https://graph.instagram.com/v21.0")
 FB_GRAPH_BASE = os.getenv("FB_GRAPH_BASE", "https://graph.facebook.com/v21.0")
@@ -161,13 +165,12 @@ def callback(
                 for scope in debug["data"].get("granular_scopes", []):
                     if scope.get("scope") in ("instagram_basic", "instagram_content_publish"):
                         target_ids.extend(scope.get("target_ids") or [])
-                ig_user_id = next(iter(dict.fromkeys(target_ids)), None)
+                ig_user_id = IG_USER_ID or next(iter(dict.fromkeys(target_ids)), None)
                 if not ig_user_id:
                     raise HTTPException(
                         400,
-                        "Nenhuma conta Instagram foi encontrada. Na configuracao da Meta, adicione "
-                        "as permissoes pages_show_list e pages_read_engagement, selecione a Pagina "
-                        "do Facebook vinculada ao Instagram e conecte novamente.",
+                        "Nenhuma conta Instagram foi encontrada. Defina IG_USER_ID com o ID da "
+                        "conta autorizada em Apps conectados ou vincule uma Pagina ao Instagram.",
                     )
                 r = c.get(f"{FB_GRAPH_BASE}/{ig_user_id}", params={
                     "fields": "id,username", "access_token": token})
