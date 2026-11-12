@@ -134,36 +134,48 @@ def callback(
 
         # 3) dados da conta
         if LOGIN_CONFIG_ID:
-            # O token de usuario do sistema e valido no Graph API do Facebook,
-            # nao no host graph.instagram.com. Os IDs das contas permitidas
-            # ficam nas granular scopes da configuracao de login.
-            r = c.get(f"{FB_GRAPH_BASE}/debug_token", params={
-                "input_token": token,
-                "access_token": f"{APP_ID}|{APP_SECRET}",
+            # O fluxo Facebook Login resolve a conta pelo Page conectado ao
+            # perfil profissional. O token da pagina e o usado para publicar.
+            r = c.get(f"{FB_GRAPH_BASE}/me/accounts", params={
+                "fields": "id,name,access_token,instagram_business_account{id,username}",
+                "access_token": token,
             })
-            debug = r.json()
-            if r.status_code >= 400 or not debug.get("data", {}).get("is_valid"):
-                raise HTTPException(400, f"Falha ao validar o token: {debug}")
-
-            target_ids = []
-            for scope in debug["data"].get("granular_scopes", []):
-                if scope.get("scope") in ("instagram_basic", "instagram_content_publish"):
-                    target_ids.extend(scope.get("target_ids") or [])
-            ig_user_id = next(iter(dict.fromkeys(target_ids)), None)
-            if not ig_user_id:
-                raise HTTPException(
-                    400,
-                    "Nenhuma conta Instagram foi autorizada nesta configuracao. "
-                    "Selecione a conta nos ativos da configuracao da Meta e conecte novamente.",
-                )
-
-            r = c.get(f"{FB_GRAPH_BASE}/{ig_user_id}", params={
-                "fields": "id,username", "access_token": token})
-            perfil = r.json()
-            if r.status_code >= 400:
-                raise HTTPException(400, f"Falha ao ler o perfil: {perfil}")
-            ig_user_id = str(perfil["id"])
-            username = perfil.get("username", ig_user_id)
+            pages = r.json()
+            page = next((p for p in pages.get("data", []) if p.get("instagram_business_account")), None)
+            if page:
+                perfil = page["instagram_business_account"]
+                ig_user_id = str(perfil["id"])
+                username = perfil.get("username", ig_user_id)
+                token = page.get("access_token", token)
+            else:
+                # Algumas configuracoes restrigem diretamente a conta Instagram
+                # em vez de expor uma Page. Tentamos esse formato como fallback.
+                r = c.get(f"{FB_GRAPH_BASE}/debug_token", params={
+                    "input_token": token,
+                    "access_token": f"{APP_ID}|{APP_SECRET}",
+                })
+                debug = r.json()
+                if r.status_code >= 400 or not debug.get("data", {}).get("is_valid"):
+                    raise HTTPException(400, f"Falha ao validar o token: {debug}")
+                target_ids = []
+                for scope in debug["data"].get("granular_scopes", []):
+                    if scope.get("scope") in ("instagram_basic", "instagram_content_publish"):
+                        target_ids.extend(scope.get("target_ids") or [])
+                ig_user_id = next(iter(dict.fromkeys(target_ids)), None)
+                if not ig_user_id:
+                    raise HTTPException(
+                        400,
+                        "Nenhuma conta Instagram foi encontrada. Na configuracao da Meta, adicione "
+                        "as permissoes pages_show_list e pages_read_engagement, selecione a Pagina "
+                        "do Facebook vinculada ao Instagram e conecte novamente.",
+                    )
+                r = c.get(f"{FB_GRAPH_BASE}/{ig_user_id}", params={
+                    "fields": "id,username", "access_token": token})
+                perfil = r.json()
+                if r.status_code >= 400:
+                    raise HTTPException(400, f"Falha ao ler o perfil: {perfil}")
+                ig_user_id = str(perfil["id"])
+                username = perfil.get("username", ig_user_id)
         else:
             r = c.get(f"{GRAPH_BASE}/me", params={
                 "fields": "user_id,username", "access_token": token})
