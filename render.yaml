@@ -36,7 +36,6 @@ services:
         sync: false          # chave SECRETA do Supabase (nunca no front-end)
       - key: SUPABASE_BUCKET
         value: posts
-<<<<<<< HEAD
       # Login do painel (novo): os dois ADMIN_* so criam o 1o administrador, quando o banco ainda nao tem logins.
       # Depois, os demais logins sao criados no proprio painel (aba "Logins").
       - key: SESSION_SECRET
@@ -45,5 +44,3 @@ services:
         sync: false
       - key: ADMIN_PASSWORD_HASH
         sync: false          # python passwordGen.py
-=======
->>>>>>> 7b346546f071c3e7307c8909c370a811f03280be

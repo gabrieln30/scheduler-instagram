@@ -9,11 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from crypto import decrypt
 from database import SessionLocal
 from instagram import publicar_imagem
-<<<<<<< HEAD
 from models import Conta, PautaMarca, Post
-=======
-from models import Conta, Post
->>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 from oauth import renovar_token
 
 log = logging.getLogger("scheduler")
@@ -34,7 +30,6 @@ def publicar_post(post_id: int):
         try:
             if not p.conta.ativa:
                 raise RuntimeError("Conta desconectada ou token expirado")
-<<<<<<< HEAD
             p.ig_media_id, p.ig_permalink = publicar_imagem(
                 p.conta.ig_user_id, decrypt(p.conta.access_token_enc),
                 p.imagem_url, p.legenda,
@@ -49,13 +44,6 @@ def publicar_post(post_id: int):
                     m.usada = True
                 else:
                     db.add(PautaMarca(grupo=p.pauta_grupo, chave=p.pauta_chave, usada=True))
-=======
-            p.ig_media_id = publicar_imagem(
-                p.conta.ig_user_id, decrypt(p.conta.access_token_enc),
-                p.imagem_url, p.legenda,
-            )
-            p.status = "publicado"
->>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
         except Exception as e:
             p.status = "erro"
             p.erro = str(e)[:500]

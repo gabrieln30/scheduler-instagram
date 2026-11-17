@@ -1,9 +1,5 @@
 from datetime import datetime, timezone
-<<<<<<< HEAD
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, UniqueConstraint, Date
-=======
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
->>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -12,7 +8,6 @@ def agora():
     return datetime.now(timezone.utc)
 
 
-<<<<<<< HEAD
 class Usuario(Base):
     """Um login do painel. papel: admin | usuario | leitor."""
     __tablename__ = "usuarios"
@@ -33,18 +28,12 @@ class Conta(Base):
     __tablename__ = "contas"
     id = Column(Integer, primary_key=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True, index=True)  # dono da conta
-=======
-class Conta(Base):
-    __tablename__ = "contas"
-    id = Column(Integer, primary_key=True)
->>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
     username = Column(String(100), nullable=False)
     ig_user_id = Column(String(50), nullable=False, unique=True)
     access_token_enc = Column(Text, nullable=False)  # criptografado (Fernet)
     token_expira_em = Column(DateTime(timezone=True), nullable=True)
     ativa = Column(Boolean, default=True)
     conectada_em = Column(DateTime(timezone=True), default=agora)
-<<<<<<< HEAD
     dono = relationship("Usuario", back_populates="contas", foreign_keys=[usuario_id])
     posts = relationship("Post", back_populates="conta")
 
@@ -70,11 +59,6 @@ class DiaManual(Base):
     dia = Column(Date, nullable=False)
 
 
-=======
-    posts = relationship("Post", back_populates="conta")
-
-
->>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 class Post(Base):
     __tablename__ = "posts"
     id = Column(Integer, primary_key=True)
@@ -87,7 +71,6 @@ class Post(Base):
     ig_media_id = Column(String(50), nullable=True)
     erro = Column(Text, nullable=True)
     criado_em = Column(DateTime(timezone=True), default=agora)
-<<<<<<< HEAD
     # calendario: a qual cliente/dia este post pertence e qual pauta foi usada
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True, index=True)
     dia = Column(Date, nullable=True, index=True)
@@ -118,6 +101,3 @@ class Preferencia(Base):
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
     chave = Column(String(40), nullable=False)
     valor = Column(Text, nullable=False)
-=======
-    conta = relationship("Conta", back_populates="posts")
->>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
