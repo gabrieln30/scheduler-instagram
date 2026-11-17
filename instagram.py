@@ -18,7 +18,11 @@ def _check(r: httpx.Response) -> dict:
     return data
 
 
+<<<<<<< HEAD
 def publicar_imagem(ig_user_id: str, token: str, image_url: str, legenda: str) -> tuple:
+=======
+def publicar_imagem(ig_user_id: str, token: str, image_url: str, legenda: str) -> str:
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
     with httpx.Client(timeout=30) as c:
         # 1) cria o container de midia
         cont = _check(c.post(
@@ -44,6 +48,7 @@ def publicar_imagem(ig_user_id: str, token: str, image_url: str, legenda: str) -
             f"{GRAPH_BASE}/{ig_user_id}/media_publish",
             data={"creation_id": creation_id, "access_token": token},
         ))
+<<<<<<< HEAD
         media_id = pub["id"]  # o Instagram so devolve este id quando o post realmente saiu
 
         # 4) confirmacao extra: busca o link publico do post (se falhar, o post continua valendo como publicado)
@@ -55,3 +60,6 @@ def publicar_imagem(ig_user_id: str, token: str, image_url: str, legenda: str) -
         except Exception:
             pass
         return media_id, permalink
+=======
+        return pub["id"]
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be

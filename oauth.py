@@ -11,10 +11,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+<<<<<<< HEAD
 from Auth import usuario_logado
 from crypto import encrypt, decrypt
 from database import get_db
 from models import Conta, Usuario
+=======
+from crypto import encrypt, decrypt
+from database import get_db
+from models import Conta
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 
 router = APIRouter(prefix="/auth/instagram", tags=["auth"])
 
@@ -36,6 +42,7 @@ STATE_TTL = timedelta(minutes=10)
 # O Login for Business abre um popup no dominio do Facebook. Guardamos tambem o
 # state no servidor para que a verificacao CSRF nao dependa do navegador enviar
 # o cookie no retorno entre dominios. O Render usa um unico worker.
+<<<<<<< HEAD
 _oauth_states: dict[str, tuple] = {}  # state -> (criado_em, quem iniciou, dono da conta)
 
 
@@ -60,6 +67,18 @@ def login(request: Request, usuario_id: Optional[int] = None, db: Session = Depe
     now = datetime.now(timezone.utc)
     _oauth_states[state] = (now, u.id, alvo)
     for saved_state, (created_at, _, _) in list(_oauth_states.items()):
+=======
+_oauth_states: dict[str, datetime] = {}
+
+
+@router.get("/login")
+def login():
+    """Redireciona o usuario para a tela de autorizacao do Instagram."""
+    state = secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc)
+    _oauth_states[state] = now
+    for saved_state, created_at in list(_oauth_states.items()):
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
         if now - created_at > STATE_TTL:
             _oauth_states.pop(saved_state, None)
     params = {
@@ -98,18 +117,25 @@ def callback(
 ):
     if error:
         raise HTTPException(400, error_description or error)
+<<<<<<< HEAD
     created_at, iniciador, alvo = (_oauth_states.pop(state, None) if state else None) or (None, None, None)
+=======
+    created_at = _oauth_states.pop(state, None) if state else None
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
     cookie_state = request.cookies.get("ig_oauth_state", "")
     valid_cookie = bool(state) and secrets.compare_digest(state, cookie_state)
     valid_server_state = bool(created_at) and datetime.now(timezone.utc) - created_at <= STATE_TTL
     if not code or not state or not (valid_cookie or valid_server_state):
         raise HTTPException(400, "State invalido ou ausente (possivel CSRF)")
+<<<<<<< HEAD
     sessao = usuario_logado(request, db)
     if not sessao:
         return RedirectResponse("/login")
     if sessao.papel == "leitor" or (iniciador is not None and sessao.id != iniciador):
         raise HTTPException(403, "Sessao diferente da que iniciou a conexao")
     alvo = alvo or sessao.id
+=======
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
     code = code.removesuffix("#_")  # a Meta anexa '#_' ao final do code
 
     with httpx.Client(timeout=30) as c:
@@ -210,16 +236,24 @@ def callback(
             username = perfil.get("username", ig_user_id)
 
     conta = db.query(Conta).filter_by(ig_user_id=ig_user_id).first()
+<<<<<<< HEAD
     if conta and conta.usuario_id not in (None, alvo):
         raise HTTPException(409, "Essa conta do Instagram ja esta vinculada a outro login.")
     if conta:  # reconectar conta existente
         conta.usuario_id = alvo
+=======
+    if conta:  # reconectar conta existente
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
         conta.username = username
         conta.access_token_enc = encrypt(token)
         conta.token_expira_em = expira
         conta.ativa = True
     else:
+<<<<<<< HEAD
         conta = Conta(usuario_id=alvo, username=username, ig_user_id=ig_user_id,
+=======
+        conta = Conta(username=username, ig_user_id=ig_user_id,
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
                       access_token_enc=encrypt(token), token_expira_em=expira)
         db.add(conta)
     db.commit()

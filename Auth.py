@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """Login do painel: varios usuarios no banco (senha PBKDF2), 3 tipos de acesso e cookie de sessao assinado.
 
 Tipos:
@@ -9,10 +10,17 @@ import hashlib
 import hmac
 import os
 import re
+=======
+"""Login do painel: usuario + senha (hash PBKDF2) e cookie de sessao assinado."""
+import hashlib
+import hmac
+import os
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 import secrets
 import time
 from typing import Optional
 
+<<<<<<< HEAD
 from fastapi import Depends, HTTPException, Request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.orm import Session
@@ -23,14 +31,24 @@ from models import Conta, Usuario
 # ADMIN_USER / ADMIN_PASSWORD_HASH so servem para criar o 1o administrador quando o banco ainda nao tem usuarios.
 ADMIN_USER = os.getenv("ADMIN_USER")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
+=======
+from fastapi import HTTPException, Request
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+
+ADMIN_USER = os.environ["ADMIN_USER"]
+ADMIN_PASSWORD_HASH = os.environ["ADMIN_PASSWORD_HASH"]
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 COOKIE = "sessao"
 DURACAO = 7 * 24 * 3600  # 7 dias
 _serializer = URLSafeTimedSerializer(os.environ["SESSION_SECRET"], salt="sessao-painel")
 
+<<<<<<< HEAD
 PAPEIS = {"admin": "Administrador", "usuario": "Usuário", "leitor": "Somente leitura"}
 RE_USUARIO = re.compile(r"^[a-z0-9._-]{3,32}$")
 SENHA_MIN = 10
 
+=======
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 
 # ---------- senha ----------
 def gerar_hash(senha: str, iteracoes: int = 600_000) -> str:
@@ -48,6 +66,7 @@ def verificar_senha(senha: str, armazenado: str) -> bool:
         return False
 
 
+<<<<<<< HEAD
 _HASH_FALSO = gerar_hash(secrets.token_hex(8))  # usado quando o usuario nao existe (evita vazar timing)
 
 
@@ -63,10 +82,25 @@ def criar_sessao(u: Usuario) -> str:
 
 
 def _ler_token(request: Request) -> Optional[dict]:
+=======
+def checar_credenciais(usuario: str, senha: str) -> bool:
+    ok_user = hmac.compare_digest(usuario.encode(), ADMIN_USER.encode())
+    ok_senha = verificar_senha(senha, ADMIN_PASSWORD_HASH)  # sempre calcula (evita vazar timing)
+    return ok_user and ok_senha
+
+
+# ---------- sessao ----------
+def criar_sessao(usuario: str) -> str:
+    return _serializer.dumps({"u": usuario})
+
+
+def usuario_logado(request: Request) -> Optional[str]:
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
     token = request.cookies.get(COOKIE)
     if not token:
         return None
     try:
+<<<<<<< HEAD
         return _serializer.loads(token, max_age=DURACAO)
     except (BadSignature, SignatureExpired):
         return None
@@ -85,12 +119,25 @@ def usuario_logado(request: Request, db: Session) -> Optional[Usuario]:
     if not u or not u.ativo or u.sessao_versao != d.get("v"):
         return None  # desativado ou senha trocada: a sessao antiga morre na hora
     return u
+=======
+        dados = _serializer.loads(token, max_age=DURACAO)
+    except (BadSignature, SignatureExpired):
+        return None
+    return dados.get("u") if dados.get("u") == ADMIN_USER else None
+
+
+def exigir_login(request: Request):
+    """Dependencia das rotas da API: 401 se nao estiver logado."""
+    if not usuario_logado(request):
+        raise HTTPException(401, "Nao autenticado")
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 
 
 def cookie_seguro(request: Request) -> bool:
     return request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
 
 
+<<<<<<< HEAD
 def usuario_atual(request: Request, db: Session = Depends(get_db)) -> Usuario:
     u = usuario_logado(request, db)
     if not u:
@@ -143,6 +190,8 @@ def preparar_banco(db: Session):
         db.commit()
 
 
+=======
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
 # ---------- limite de tentativas (em memoria; ok com 1 instancia) ----------
 _falhas: dict = {}
 MAX_FALHAS = 5
@@ -167,4 +216,8 @@ def registrar_falha(ip: str):
 
 
 def limpar_falhas(ip: str):
+<<<<<<< HEAD
     _falhas.pop(ip, None)
+=======
+    _falhas.pop(ip, None)
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be

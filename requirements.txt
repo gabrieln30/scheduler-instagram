@@ -8,5 +8,9 @@ python-multipart
 python-dotenv
 cryptography
 Pillow
+<<<<<<< HEAD
 psycopg[binary]
 itsdangerous
+=======
+psycopg[binary]
+>>>>>>> 7b346546f071c3e7307c8909c370a811f03280be
