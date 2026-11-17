@@ -1,0 +1,46 @@
+# Plano GRATUITO: sem disco persistente e sem banco do Render
+# (banco = Supabase ou Neon, imagens = Supabase Storage). Veja o passo a passo na conversa.
+services:
+  - type: web
+    name: igscheduler
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT   # 1 worker so, de proposito
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: GRAPH_BASE
+        value: https://graph.instagram.com/v21.0
+      - key: FRONTEND_URL
+        value: /painel/
+      # Preencha no painel do Render:
+      - key: DATABASE_URL
+        sync: false          # Supabase: Connect > Session pooler (porta 5432)
+      - key: IG_REDIRECT_URI
+        sync: false          # https://SEU-SERVICO.onrender.com/auth/instagram/callback
+      - key: IG_APP_ID
+        sync: false
+      - key: IG_APP_SECRET
+        sync: false
+      - key: IG_LOGIN_CONFIG_ID
+        sync: false          # Meta > Instagram API (login unificado) > Identificacao da configuracao
+      - key: IG_USER_ID
+        sync: false          # Meta > Apps conectados > Conta do Instagram autorizada
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false          # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      - key: SUPABASE_URL
+        sync: false          # https://SEU_REF.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false          # chave SECRETA do Supabase (nunca no front-end)
+      - key: SUPABASE_BUCKET
+        value: posts
+      # Login do painel (novo): os dois ADMIN_* so criam o 1o administrador, quando o banco ainda nao tem logins.
+      # Depois, os demais logins sao criados no proprio painel (aba "Logins").
+      - key: SESSION_SECRET
+        sync: false          # python passwordGen.py gera um valor
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false          # python passwordGen.py

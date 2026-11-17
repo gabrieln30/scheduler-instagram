@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar · Gabriel Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--line:#3a3a3a;--muted:#a6a6a6;--err:#ff7a8a;--font-d:'Barlow Condensed','Arial Narrow',Impact,system-ui,sans-serif;--font-b:'Figtree','Segoe UI',system-ui,sans-serif}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;color:#fff;font-family:var(--font-b);
+  background:linear-gradient(115deg,#000 0 36%,#fff 36% 52%,#000 52%)}
+.box{width:100%;max-width:410px;background:#000;border:2px solid #fff;border-radius:10px;padding:30px}
+h1{margin:0;font-family:var(--font-d);font-weight:800;font-size:46px;line-height:.95}
+.sub{margin:10px 0 26px;color:var(--muted);font-size:14px}
+label{display:block;margin:0 0 7px;font:700 12px var(--font-b);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+input{width:100%;background:#000;color:#fff;border:1.5px solid var(--line);border-radius:8px;padding:13px 14px;margin-bottom:18px;font:500 15px var(--font-b)}
+input:focus{outline:none;border-color:#fff}
+.senha{position:relative}.senha input{padding-right:84px}
+.ver{position:absolute;right:6px;top:6px;width:auto;margin:0;padding:8px 10px;background:transparent;color:var(--muted);font:700 11px var(--font-b);letter-spacing:.06em;text-transform:uppercase;border:0;cursor:pointer}
+.ver:hover{color:#fff}
+#entrar{width:100%;border:0;border-radius:8px;padding:15px;cursor:pointer;background:#fff;color:#000;font:800 13px var(--font-b);letter-spacing:.08em;text-transform:uppercase}
+#entrar:hover{background:#e6e6e6}#entrar:disabled{opacity:.6;cursor:wait}
+:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.erro{display:none;margin-bottom:18px;padding:12px 14px;border-radius:8px;border:1px solid var(--err);color:var(--err);font-size:14px}
+.erro.ok{border-color:#fff;color:#fff}
+.aviso{display:none;margin:-8px 0 16px;font-size:13px;color:#fff}
+@media (max-width:640px){body{background:linear-gradient(160deg,#000 0 30%,#fff 30% 42%,#000 42%)}}
+</style>
+</head>
+<body>
+<main class="box">
+  <h1>Gabriel Designer</h1>
+  <p class="sub">Painel de posts e pautas. Cada login enxerga só o que é dele.</p>
+  <form method="post" action="/login">
+    <div class="erro" id="erro" role="alert"></div>
+    <label for="usuario">Usuário</label>
+    <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+    <label for="senha">Senha</label>
+    <div class="senha">
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+      <button type="button" class="ver" id="ver" aria-pressed="false">Mostrar</button>
+    </div>
+    <div class="aviso" id="caps">Caps Lock está ligado.</div>
+    <button type="submit" id="entrar">Entrar</button>
+  </form>
+</main>
+<script>
+const q = new URLSearchParams(location.search), box = document.getElementById('erro');
+const msg = {
+  bloqueado: 'Muitas tentativas. Aguarde 15 minutos e tente de novo.',
+  sessao: 'Sua sessão expirou. Entre novamente.',
+  '1': 'Usuário ou senha incorretos.'
+}[q.get('erro')];
+if (msg) { box.textContent = msg; box.style.display = 'block'; }
+else if (q.get('saiu')) { box.textContent = 'Você saiu com segurança.'; box.className = 'erro ok'; box.style.display = 'block'; }
+if (q.get('erro') || q.get('saiu')) history.replaceState(null, '', location.pathname);
+const senha = document.getElementById('senha'), ver = document.getElementById('ver');
+ver.onclick = () => {
+  const mostrar = senha.type === 'password';
+  senha.type = mostrar ? 'text' : 'password';
+  ver.textContent = mostrar ? 'Ocultar' : 'Mostrar';
+  ver.setAttribute('aria-pressed', mostrar);
+};
+senha.addEventListener('keyup', e => {
+  document.getElementById('caps').style.display = e.getModifierState && e.getModifierState('CapsLock') ? 'block' : 'none';
+});
+document.querySelector('form').addEventListener('submit', () => {
+  const b = document.getElementById('entrar'); b.disabled = true; b.textContent = 'Entrando…';
+});
+</script>
+</body>
+</html>

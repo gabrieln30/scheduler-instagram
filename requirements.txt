@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+httpx
+apscheduler
+python-multipart
+python-dotenv
+cryptography
+Pillow
+psycopg[binary]
+itsdangerous
