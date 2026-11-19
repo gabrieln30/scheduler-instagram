@@ -210,9 +210,11 @@ def callback(
             username = perfil.get("username", ig_user_id)
 
     conta = db.query(Conta).filter_by(ig_user_id=ig_user_id).first()
-    if conta and conta.usuario_id not in (None, alvo):
-        raise HTTPException(409, "Essa conta do Instagram ja esta vinculada a outro login.")
+    transferida = bool(conta and conta.usuario_id not in (None, alvo))
     if conta:  # reconectar conta existente
+        # A nova autorizacao OAuth comprova que quem iniciou o fluxo controla
+        # esta conta do Instagram. Assim ela pode migrar do login antigo para
+        # o login atual, em vez de ficar invisivel para o novo cadastro.
         conta.usuario_id = alvo
         conta.username = username
         conta.access_token_enc = encrypt(token)
@@ -224,7 +226,8 @@ def callback(
         db.add(conta)
     db.commit()
 
-    resp = RedirectResponse(f"{FRONTEND_URL}?conectado={username}")
+    sufixo = "&transferida=1" if transferida else ""
+    resp = RedirectResponse(f"{FRONTEND_URL}?conectado={username}{sufixo}")
     resp.delete_cookie("ig_oauth_state")
     return resp
 

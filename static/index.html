@@ -1204,7 +1204,12 @@ $('#form-senha').addEventListener('submit', async e => {
 /* ================= início ================= */
 (async function init() {
   const params = new URLSearchParams(location.search);
-  if (params.get('conectado')) { toast('Conta @' + params.get('conectado') + ' conectada!'); history.replaceState(null, '', location.pathname); }
+  if (params.get('conectado')) {
+    const mensagem = params.get('transferida')
+      ? 'Conta @' + params.get('conectado') + ' transferida para este login!'
+      : 'Conta @' + params.get('conectado') + ' conectada!';
+    toast(mensagem); history.replaceState(null, '', location.pathname);
+  }
   atualizarTipo();
   try {
     eu = await api('/me'); aplicarPapel();
