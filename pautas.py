@@ -2,6 +2,7 @@
 com o amarelo aplicado so nas pautas que mudaram. Tambem guarda preferencias por login (acompanhamento semanal)."""
 import io
 import json
+import logging
 import re
 import zipfile
 from pathlib import Path
@@ -19,7 +20,11 @@ from models import PautaMarca, Preferencia, Usuario
 
 router = APIRouter(tags=["pautas"])
 DIR = Path(__file__).parent / "pautas_dados"
-GRUPOS = json.loads((DIR / "pautas.json").read_text(encoding="utf-8"))
+try:
+    GRUPOS = json.loads((DIR / "pautas.json").read_text(encoding="utf-8"))
+except FileNotFoundError:  # pasta pautas_dados nao foi enviada ao deploy: o app sobe, so sem as pautas
+    logging.getLogger("pautas").error("pautas_dados/pautas.json nao encontrado: aba Pautas ficara vazia")
+    GRUPOS = []
 POR_ID = {g["id"]: g for g in GRUPOS}
 HLX = '<w:highlight w:val="yellow"/>'
 RPRW = "<w:rPr>" + HLX + "</w:rPr>"

@@ -41,6 +41,8 @@ services:
       - key: SESSION_SECRET
         sync: false          # python passwordGen.py gera um valor
       - key: ADMIN_USER
-        sync: false
+        sync: false          # ex.: gabriel
+      - key: ADMIN_PASSWORD
+        sync: false          # senha do 1o administrador (min. 10 caracteres); pode apagar depois do 1o acesso
       - key: ADMIN_PASSWORD_HASH
-        sync: false          # python passwordGen.py
+        sync: false          # opcional: use no lugar de ADMIN_PASSWORD (python passwordGen.py)

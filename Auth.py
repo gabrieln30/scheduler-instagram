@@ -7,6 +7,7 @@ Tipos:
 """
 import hashlib
 import hmac
+import logging
 import os
 import re
 import secrets
@@ -20,12 +21,30 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Conta, Usuario
 
-# ADMIN_USER / ADMIN_PASSWORD_HASH so servem para criar o 1o administrador quando o banco ainda nao tem usuarios.
+log = logging.getLogger("auth")
+
+# ADMIN_USER + (ADMIN_PASSWORD_HASH ou ADMIN_PASSWORD) so servem para criar o 1o administrador,
+# quando o banco ainda nao tem nenhum login. Depois disso os logins sao criados no painel.
 ADMIN_USER = os.getenv("ADMIN_USER")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 COOKIE = "sessao"
 DURACAO = 7 * 24 * 3600  # 7 dias
-_serializer = URLSafeTimedSerializer(os.environ["SESSION_SECRET"], salt="sessao-painel")
+
+
+def _segredo_da_sessao() -> str:
+    segredo = os.getenv("SESSION_SECRET")
+    if segredo:
+        return segredo
+    # Sem SESSION_SECRET o app ainda sobe: deriva um segredo estavel de outra chave secreta que ja existe.
+    base = os.getenv("TOKEN_ENCRYPTION_KEY") or os.getenv("IG_APP_SECRET") or os.getenv("DATABASE_URL")
+    if not base:
+        raise RuntimeError("Defina SESSION_SECRET (ou TOKEN_ENCRYPTION_KEY) nas variaveis de ambiente.")
+    log.warning("SESSION_SECRET nao definido: usando um segredo derivado. Defina SESSION_SECRET no Render.")
+    return hmac.new(base.encode(), b"sessao-painel-v1", hashlib.sha256).hexdigest()
+
+
+_serializer = URLSafeTimedSerializer(_segredo_da_sessao(), salt="sessao-painel")
 
 PAPEIS = {"admin": "Administrador", "usuario": "Usuário", "leitor": "Somente leitura"}
 RE_USUARIO = re.compile(r"^[a-z0-9._-]{3,32}$")
@@ -134,9 +153,15 @@ def pode_ver_conta(u: Usuario, conta: Conta) -> bool:
 
 # ---------- 1o administrador + contas antigas ----------
 def preparar_banco(db: Session):
-    if db.query(Usuario).count() == 0 and ADMIN_USER and ADMIN_PASSWORD_HASH:
-        db.add(Usuario(username=ADMIN_USER.strip().lower(), senha_hash=ADMIN_PASSWORD_HASH, papel="admin"))
-        db.commit()
+    if db.query(Usuario).count() == 0:
+        senha_hash = ADMIN_PASSWORD_HASH or (gerar_hash(ADMIN_PASSWORD) if ADMIN_PASSWORD and len(ADMIN_PASSWORD) >= SENHA_MIN else None)
+        if ADMIN_USER and senha_hash:
+            db.add(Usuario(username=ADMIN_USER.strip().lower(), senha_hash=senha_hash, papel="admin"))
+            db.commit()
+            log.warning("Primeiro administrador criado: %s", ADMIN_USER.strip().lower())
+        else:
+            log.error("Nenhum login existe ainda. Defina ADMIN_USER e ADMIN_PASSWORD (min. %d caracteres) "
+                      "ou ADMIN_PASSWORD_HASH no Render e reinicie.", SENHA_MIN)
     admin = db.query(Usuario).filter_by(papel="admin").order_by(Usuario.id).first()
     if admin:  # contas criadas antes dos logins passam a ser do administrador
         db.query(Conta).filter(Conta.usuario_id.is_(None)).update({"usuario_id": admin.id})
