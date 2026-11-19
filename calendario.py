@@ -123,7 +123,7 @@ def calendario(inicio: date, fim: date, _: Usuario = Depends(so_admin), db: Sess
 
 
 class Manual(BaseModel):
-    status: Optional[Literal["postado", "falta_criar"]] = None
+    status: Optional[Literal["postado", "falta_criar", "a_postar"]] = None
     feito: Optional[bool] = None  # compatibilidade com a marcacao manual anterior
 
 
