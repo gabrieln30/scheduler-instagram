@@ -731,7 +731,9 @@ const Calendario = (function () {
     if (s.manual === 'falta_criar') return { k: 'falta_criar', sub: 'conteúdo pendente' };
     if (s.manual) return { k: 'manual', sub: 'à mão' };
     if (c.dias.indexOf(i) < 0) return { k: 'nd' };
-    return { k: key < todayKey ? 'atrasado' : key === todayKey ? 'hoje' : 'apostar', sub: key < todayKey ? 'postar' : '' };
+    // Todo dia de postagem começa como conteúdo pendente de criação. O estado
+    // só muda quando há um post, erro, agendamento ou marcação manual.
+    return { k: 'falta_criar', sub: 'conteúdo pendente' };
   }
   function calcSugestoes() {
     sugs = {}; const W = semana();
@@ -839,7 +841,7 @@ const Calendario = (function () {
 /* ================= janela de postar ================= */
 const Postar = (function () {
   const el = id => document.getElementById(id);
-  const FORM_K = ['hoje', 'apostar', 'atrasado', 'erro', 'avulso'];
+  const FORM_K = ['hoje', 'apostar', 'atrasado', 'erro', 'falta_criar', 'avulso'];
   let ctx = null, arquivo = null;
   const iso = d => ymd(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   const textoPauta = p => (p.d ? p.t + '\n\n' + p.d : p.t);
@@ -887,7 +889,7 @@ const Postar = (function () {
     /* ações extras conforme o estado */
     const x = el('pz-extra'); x.replaceChildren();
     if (k === 'agendado') x.append(h('button', { class: 'btn perigo', type: 'button', onclick: cancelarAgendamento }, 'Cancelar o agendamento'));
-    if (k === 'manual') x.append(h('p', {}, 'Se isto foi um engano, você pode voltar o dia para “a postar”.'), h('button', { class: 'btn', type: 'button', onclick: () => marcar(null) }, 'Desmarcar (voltar para a postar)'));
+    if (k === 'manual') x.append(h('p', {}, 'Se isto foi um engano, você pode voltar o dia para “Falta criar”.'), h('button', { class: 'btn', type: 'button', onclick: () => marcar(null) }, 'Desmarcar (voltar para Falta criar)'));
     if (k === 'falta_criar') x.append(h('p', {}, 'Quando o conteúdo estiver pronto, volte este dia para “a postar” ou marque como postado.'), h('button', { class: 'btn', type: 'button', onclick: () => marcar(null) }, 'Marcar como a postar'), h('button', { class: 'btn', type: 'button', onclick: () => marcar('postado') }, 'Marcar como postado à mão'));
     if (['hoje', 'apostar', 'atrasado', 'erro'].indexOf(k) > -1) x.append(h('p', {}, 'Altere este dia manualmente, se necessário.'), h('button', { class: 'btn', type: 'button', onclick: () => marcar('falta_criar') }, 'Marcar como “Falta criar”'), h('button', { class: 'btn', type: 'button', onclick: () => marcar('postado') }, 'Marcar como postado à mão'));
     x.hidden = !x.childNodes.length;
@@ -938,7 +940,7 @@ const Postar = (function () {
   async function marcar(status) {
     try {
       await jsend('/calendario/' + ctx.cid + '/' + ctx.key + '/manual', { status }, 'PUT');
-      const msg = status === 'postado' ? 'Dia marcado como postado à mão.' : status === 'falta_criar' ? 'Dia marcado como “Falta criar”.' : 'Dia voltou para “a postar”.';
+      const msg = status === 'postado' ? 'Dia marcado como postado à mão.' : status === 'falta_criar' ? 'Dia marcado como “Falta criar”.' : 'Dia voltou para “Falta criar”.';
       toast(msg); await Calendario.recarregar();
       if (status === 'postado') el('dlg-postar').close(); else desenhar();
     } catch (e) { toast(e.message, 'err'); }
