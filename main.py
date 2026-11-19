@@ -43,6 +43,7 @@ def _migrar():
         con.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_email ON usuarios (email) WHERE email IS NOT NULL"))
         con.execute(text("ALTER TABLE contas ADD COLUMN IF NOT EXISTS usuario_id INTEGER REFERENCES usuarios(id)"))
         con.execute(text("CREATE INDEX IF NOT EXISTS ix_contas_usuario_id ON contas (usuario_id)"))
+        con.execute(text("ALTER TABLE dia_manual ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'postado'"))
         for col, tipo in (("cliente_id", "INTEGER REFERENCES clientes(id)"), ("dia", "DATE"), ("pauta_grupo", "VARCHAR(30)"),
                           ("pauta_chave", "VARCHAR(20)"), ("confirmado_em", "TIMESTAMPTZ"), ("ig_permalink", "TEXT")):
             con.execute(text(f"ALTER TABLE posts ADD COLUMN IF NOT EXISTS {col} {tipo}"))

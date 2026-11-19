@@ -28,6 +28,9 @@ log = logging.getLogger("auth")
 ADMIN_USER = os.getenv("ADMIN_USER")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+# Uso excepcional de recuperacao: promova apenas o e-mail informado no Render
+# e remova a variavel depois que recuperar o acesso.
+RECOVERY_ADMIN_EMAIL = os.getenv("RECOVERY_ADMIN_EMAIL", "").strip().lower()
 COOKIE = "sessao"
 DURACAO = 7 * 24 * 3600  # 7 dias
 
@@ -166,6 +169,20 @@ def preparar_banco(db: Session):
     if admin:  # contas criadas antes dos logins passam a ser do administrador
         db.query(Conta).filter(Conta.usuario_id.is_(None)).update({"usuario_id": admin.id})
         db.commit()
+
+    if RECOVERY_ADMIN_EMAIL:
+        u = db.query(Usuario).filter(
+            (Usuario.email == RECOVERY_ADMIN_EMAIL) | (Usuario.username == RECOVERY_ADMIN_EMAIL)
+        ).first()
+        if not u:
+            log.error("RECOVERY_ADMIN_EMAIL nao encontrou um usuario: %s", RECOVERY_ADMIN_EMAIL)
+            return
+        if u.papel != "admin" or not u.ativo:
+            u.papel = "admin"
+            u.ativo = True
+            u.dono_id = None
+            db.commit()
+            log.warning("Acesso de administrador recuperado para: %s", u.username)
 
 
 # ---------- limite de tentativas (em memoria; ok com 1 instancia) ----------

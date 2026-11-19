@@ -2,7 +2,7 @@
 O status 'postado' NUNCA e gravado aqui: ele vem do post, e o post so vira 'publicado' depois que o
 Instagram confirma (ver scheduler.py). A unica excecao e a marcacao manual, para posts feitos fora do sistema."""
 from datetime import date
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -113,7 +113,7 @@ def calendario(inicio: date, fim: date, _: Usuario = Depends(so_admin), db: Sess
                          "confirmado_em": p.confirmado_em, "conta": p.conta.username,
                          "pauta_grupo": p.pauta_grupo, "pauta_chave": p.pauta_chave}
     for m in db.query(DiaManual).filter(DiaManual.dia >= inicio, DiaManual.dia <= fim):
-        slots.setdefault(str(m.cliente_id), {}).setdefault(m.dia.isoformat(), {"post": None, "manual": False})["manual"] = True
+        slots.setdefault(str(m.cliente_id), {}).setdefault(m.dia.isoformat(), {"post": None, "manual": False})["manual"] = m.status or "postado"
     reservadas: dict = {}  # pautas ja ligadas a um post (em qualquer data) - nao sugerir de novo
     for g, k, cid in (db.query(Post.pauta_grupo, Post.pauta_chave, Post.cliente_id)
                       .filter(Post.cliente_id.isnot(None), Post.pauta_chave.isnot(None),
@@ -123,16 +123,20 @@ def calendario(inicio: date, fim: date, _: Usuario = Depends(so_admin), db: Sess
 
 
 class Manual(BaseModel):
-    feito: bool
+    status: Optional[Literal["postado", "falta_criar"]] = None
+    feito: Optional[bool] = None  # compatibilidade com a marcacao manual anterior
 
 
 @router.put("/calendario/{cid}/{dia}/manual")
 def marcar_manual(cid: int, dia: date, d: Manual, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     _cliente(db, cid)
     r = db.query(DiaManual).filter_by(cliente_id=cid, dia=dia).first()
-    if d.feito and not r:
-        db.add(DiaManual(cliente_id=cid, dia=dia))
-    elif not d.feito and r:
+    status = d.status if d.status is not None else ("postado" if d.feito else None)
+    if status and not r:
+        db.add(DiaManual(cliente_id=cid, dia=dia, status=status))
+    elif status and r:
+        r.status = status
+    elif not status and r:
         db.delete(r)
     db.commit()
     return {"ok": True}

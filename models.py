@@ -53,12 +53,13 @@ class Cliente(Base):
 
 
 class DiaManual(Base):
-    """Dia marcado a mao como 'postado' (post feito fora do sistema)."""
+    """Marcacao manual de um dia do calendario (postado ou falta criar)."""
     __tablename__ = "dia_manual"
     __table_args__ = (UniqueConstraint("cliente_id", "dia"),)
     id = Column(Integer, primary_key=True)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False, index=True)
     dia = Column(Date, nullable=False)
+    status = Column(String(20), nullable=False, default="postado")
 
 
 class Post(Base):

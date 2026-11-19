@@ -245,6 +245,7 @@ tr.done td.name::after{content:" ✓"}
 .c-publicando{background:var(--surface);color:var(--ink);border:2px dashed var(--ink);animation:pulso 1.4s ease-in-out infinite}
 .c-postado{background:var(--good);color:var(--good-ink);border:2px solid var(--good)}
 .c-manual{background:var(--surface);color:var(--good);border:2px dashed var(--good)}
+.c-falta_criar{background:#fff2c6;color:#7a4b00;border:2px dashed #d28a00}
 .c-nd{border:1.5px dotted var(--line);color:var(--muted);opacity:.55}
 @keyframes pulso{50%{opacity:.5}}
 .tag{display:inline-block;padding:2px 11px;border-radius:999px;font:700 12px var(--font-b);white-space:nowrap}
@@ -386,6 +387,7 @@ td.prog{min-width:120px}
         <span><span class="tag c-publicando">Enviando…</span> aguardando o Instagram</span>
         <span><span class="tag c-postado">Postado ✓</span> confirmado pelo Instagram</span>
         <span><span class="tag c-manual">Postado</span> marcado à mão</span>
+        <span><span class="tag c-falta_criar">Falta criar</span> conteúdo ainda não preparado</span>
         <span><span class="tag c-erro">Erro</span> não foi postado</span>
       </div>
     </div>
@@ -699,9 +701,9 @@ $('#btn-novo-post').addEventListener('click', () => Postar.abrirAvulso());
 
 /* ================= calendário ================= */
 const Calendario = (function () {
-  const GRUPOS = { atraso: ['atrasado', 'erro'], falta: ['hoje', 'apostar'], agenda: ['agendado', 'publicando'], feito: ['postado', 'manual'] };
-  const NOME = { apostar: 'A postar', hoje: 'Postar hoje', atrasado: 'Atrasado', erro: 'Erro', agendado: 'Agendado', publicando: 'Enviando…', postado: 'Postado ✓', manual: 'Postado' };
-  const PENDENTES = ['atrasado', 'erro', 'hoje', 'apostar'];
+  const GRUPOS = { atraso: ['atrasado', 'erro'], falta: ['hoje', 'apostar', 'falta_criar'], agenda: ['agendado', 'publicando'], feito: ['postado', 'manual'] };
+  const NOME = { apostar: 'A postar', hoje: 'Postar hoje', atrasado: 'Atrasado', erro: 'Erro', agendado: 'Agendado', publicando: 'Enviando…', postado: 'Postado ✓', manual: 'Postado', falta_criar: 'Falta criar' };
+  const PENDENTES = ['atrasado', 'erro', 'hoje', 'apostar', 'falta_criar'];
   let clientes = [], slots = {}, reservadas = {}, contasAll = [], vy = 0, vm = 0, sel = 0, filtro = null, todayKey = '', pronto = false, sugs = {}, req = 0, nPub = 0, semPub = '';
   const g = id => document.getElementById(id);
 
@@ -726,6 +728,7 @@ const Calendario = (function () {
       if (p.status === 'agendado') return { k: 'agendado', p, sub: curto(p.agendado_para) };
       if (p.status === 'erro') return { k: 'erro', p, sub: 'tentar de novo' };
     }
+    if (s.manual === 'falta_criar') return { k: 'falta_criar', sub: 'conteúdo pendente' };
     if (s.manual) return { k: 'manual', sub: 'à mão' };
     if (c.dias.indexOf(i) < 0) return { k: 'nd' };
     return { k: key < todayKey ? 'atrasado' : key === todayKey ? 'hoje' : 'apostar', sub: key < todayKey ? 'postar' : '' };
@@ -860,6 +863,7 @@ const Postar = (function () {
       publicando: ['Enviando para o Instagram…', 'Ainda NÃO está postado. Esta janela atualiza sozinha quando o Instagram confirmar.'],
       postado: ['Postado e confirmado pelo Instagram', p && p.confirmado_em ? 'Confirmado em ' + curto(p.confirmado_em) + ' · conta @' + p.conta : ''],
       manual: ['Marcado como postado à mão', 'Este post foi feito fora do sistema; o Instagram não confirmou.'],
+      falta_criar: ['Falta criar', 'Este conteúdo foi marcado como pendente de criação antes de poder postar.'],
       avulso: ['Novo post', 'Escolha foto, descrição, conta e quando postar.']
     }[k];
     const box = el('pz-aviso'); box.className = 'pz-aviso' + (k === 'avulso' ? '' : ' c-' + k);
@@ -883,8 +887,9 @@ const Postar = (function () {
     /* ações extras conforme o estado */
     const x = el('pz-extra'); x.replaceChildren();
     if (k === 'agendado') x.append(h('button', { class: 'btn perigo', type: 'button', onclick: cancelarAgendamento }, 'Cancelar o agendamento'));
-    if (k === 'manual') x.append(h('p', {}, 'Se isto foi um engano, você pode voltar o dia para “a postar”.'), h('button', { class: 'btn', type: 'button', onclick: () => manual(false) }, 'Desmarcar (voltar para a postar)'));
-    if (['hoje', 'apostar', 'atrasado', 'erro'].indexOf(k) > -1) x.append(h('p', {}, 'Já postou este dia fora do sistema?'), h('button', { class: 'btn', type: 'button', onclick: () => manual(true) }, 'Marcar como postado à mão'));
+    if (k === 'manual') x.append(h('p', {}, 'Se isto foi um engano, você pode voltar o dia para “a postar”.'), h('button', { class: 'btn', type: 'button', onclick: () => marcar(null) }, 'Desmarcar (voltar para a postar)'));
+    if (k === 'falta_criar') x.append(h('p', {}, 'Quando o conteúdo estiver pronto, volte este dia para “a postar” ou marque como postado.'), h('button', { class: 'btn', type: 'button', onclick: () => marcar(null) }, 'Marcar como a postar'), h('button', { class: 'btn', type: 'button', onclick: () => marcar('postado') }, 'Marcar como postado à mão'));
+    if (['hoje', 'apostar', 'atrasado', 'erro'].indexOf(k) > -1) x.append(h('p', {}, 'Altere este dia manualmente, se necessário.'), h('button', { class: 'btn', type: 'button', onclick: () => marcar('falta_criar') }, 'Marcar como “Falta criar”'), h('button', { class: 'btn', type: 'button', onclick: () => marcar('postado') }, 'Marcar como postado à mão'));
     x.hidden = !x.childNodes.length;
   }
   async function prepararForm() {
@@ -930,11 +935,12 @@ const Postar = (function () {
     if (f.size > MAX_MB * 1024 * 1024) return erro('A foto passa de ' + MAX_MB + ' MB.');
     arquivo = f; el('pz-prev').src = URL.createObjectURL(f); el('pz-prev').hidden = false; el('pz-vazio').hidden = true;
   }
-  async function manual(feito) {
+  async function marcar(status) {
     try {
-      await jsend('/calendario/' + ctx.cid + '/' + ctx.key + '/manual', { feito }, 'PUT');
-      toast(feito ? 'Dia marcado como postado à mão.' : 'Dia voltou para “a postar”.'); await Calendario.recarregar();
-      if (feito) el('dlg-postar').close(); else desenhar();
+      await jsend('/calendario/' + ctx.cid + '/' + ctx.key + '/manual', { status }, 'PUT');
+      const msg = status === 'postado' ? 'Dia marcado como postado à mão.' : status === 'falta_criar' ? 'Dia marcado como “Falta criar”.' : 'Dia voltou para “a postar”.';
+      toast(msg); await Calendario.recarregar();
+      if (status === 'postado') el('dlg-postar').close(); else desenhar();
     } catch (e) { toast(e.message, 'err'); }
   }
   async function cancelarAgendamento() {
@@ -1014,9 +1020,9 @@ const Clientes = (function () {
       nome.addEventListener('change', () => { if (nome.value.trim()) salvar(c.id, { nome: nome.value.trim() }); else nome.value = c.nome; });
       conta.addEventListener('change', () => salvar(c.id, { conta_id: conta.value ? +conta.value : null }));
       box.append(h('div', { class: 'cl-row' }, nome, conta, dias,
-        h('button', { class: 'btn-link', type: 'button', onclick: async () => {
+        h('button', { class: 'btn perigo', type: 'button', onclick: async () => {
           if (!confirm('Remover ' + c.nome + ' do calendário? Os posts antigos continuam salvos.')) return;
-          try { await api('/clientes/' + c.id, { method: 'DELETE' }); await recarregar(); await Calendario.recarregar(); } catch (e) { falha(e); } } }, 'Remover')));
+          try { await api('/clientes/' + c.id, { method: 'DELETE' }); await recarregar(); await Calendario.recarregar(); } catch (e) { falha(e); } } }, 'Apagar cliente')));
     }
     if (!lista.length) box.append(h('p', { class: 'muted' }, 'Nenhum cliente. Adicione abaixo.'));
     const cs = el('cl-conta'); cs.replaceChildren(h('option', { value: '' }, 'Sem conta vinculada'));

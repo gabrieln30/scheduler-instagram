@@ -46,3 +46,7 @@ services:
         sync: false          # senha do 1o administrador (min. 10 caracteres); pode apagar depois do 1o acesso
       - key: ADMIN_PASSWORD_HASH
         sync: false          # opcional: use no lugar de ADMIN_PASSWORD (python passwordGen.py)
+      # Recuperacao excepcional de administrador: informe o e-mail de um login existente,
+      # faca o deploy e remova esta variavel assim que recuperar o acesso.
+      - key: RECOVERY_ADMIN_EMAIL
+        sync: false
