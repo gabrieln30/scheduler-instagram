@@ -345,5 +345,4 @@ def cancelar_post(post_id: int, u: Usuario = Depends(pode_editar), db: Session =
     return {"ok": True}
 
 
-# Front-end (deixe por ultimo, depois de todas as rotas). Protegido pelo middleware acima.
 app.mount("/painel", StaticFiles(directory="static", html=True), name="painel")
