@@ -24,6 +24,7 @@ input:focus{outline:none;border-color:#fff}
 .ver:hover{color:#fff}
 #entrar{width:100%;border:0;border-radius:8px;padding:15px;cursor:pointer;background:#fff;color:#000;font:800 13px var(--font-b);letter-spacing:.08em;text-transform:uppercase}
 #entrar:hover{background:#e6e6e6}#entrar:disabled{opacity:.6;cursor:wait}
+.cadastro{margin:20px 0 0;text-align:center;color:var(--muted);font-size:13px}.cadastro a{color:#fff;font-weight:700}
 :focus-visible{outline:3px solid #fff;outline-offset:2px}
 .erro{display:none;margin-bottom:18px;padding:12px 14px;border-radius:8px;border:1px solid var(--err);color:var(--err);font-size:14px}
 .erro.ok{border-color:#fff;color:#fff}
@@ -37,7 +38,7 @@ input:focus{outline:none;border-color:#fff}
   <p class="sub">Painel de posts e pautas. Cada login enxerga só o que é dele.</p>
   <form method="post" action="/login">
     <div class="erro" id="erro" role="alert"></div>
-    <label for="usuario">Usuário</label>
+    <label for="usuario">E-mail ou usuário</label>
     <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
     <label for="senha">Senha</label>
     <div class="senha">
@@ -47,6 +48,7 @@ input:focus{outline:none;border-color:#fff}
     <div class="aviso" id="caps">Caps Lock está ligado.</div>
     <button type="submit" id="entrar">Entrar</button>
   </form>
+  <p class="cadastro">Ainda não tem uma conta? <a href="/criar-conta">Criar conta</a></p>
 </main>
 <script>
 const q = new URLSearchParams(location.search), box = document.getElementById('erro');

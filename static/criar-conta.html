@@ -57,15 +57,13 @@
     </section>
     <section class="form-side">
       <div class="card">
-        <p class="login">Já tem uma conta? <a href="#entrar">Entrar</a></p>
+        <p class="login">Já tem uma conta? <a href="/login">Entrar</a></p>
         <h2>Crie sua conta</h2>
         <p class="subtitle">Leva menos de um minuto para começar.</p>
-        <button class="social" type="button"><span class="google">G</span>Continuar com Google</button>
-        <div class="divider">ou use seu e-mail</div>
-        <form id="signup-form">
-          <div class="name-row"><label>Nome<input required autocomplete="given-name" placeholder="Seu nome" name="firstName"></label><label>Sobrenome<input required autocomplete="family-name" placeholder="Seu sobrenome" name="lastName"></label></div>
-          <label>E-mail<input required type="email" autocomplete="email" placeholder="voce@exemplo.com" name="email"></label>
-          <label>Senha<span class="password-wrap"><input required type="password" minlength="8" autocomplete="new-password" placeholder="Mínimo de 8 caracteres" id="password" name="password"><button class="show" type="button" aria-label="Mostrar senha" id="toggle-password">Mostrar</button></span></label>
+        <form id="signup-form" method="post" action="/criar-conta">
+          <div class="name-row"><label>Nome<input required autocomplete="given-name" placeholder="Seu nome" name="nome" maxlength="80"></label><label>Sobrenome<input autocomplete="family-name" placeholder="Seu sobrenome" name="sobrenome" maxlength="80"></label></div>
+          <label>E-mail<input required type="email" autocomplete="email" placeholder="voce@exemplo.com" name="email" maxlength="254"></label>
+          <label>Senha<span class="password-wrap"><input required type="password" minlength="10" autocomplete="new-password" placeholder="Mínimo de 10 caracteres" id="password" name="senha"><button class="show" type="button" aria-label="Mostrar senha" id="toggle-password">Mostrar</button></span></label>
           <label class="terms"><input required type="checkbox" name="terms"><span>Ao criar uma conta, você concorda com os <a href="#termos">Termos de Uso</a> e a <a href="#privacidade">Política de Privacidade</a>.</span></label>
           <button class="submit" type="submit">Criar conta</button>
           <p class="notice" id="notice" role="status"></p>
@@ -76,7 +74,10 @@
   <script>
     const toggle = document.querySelector('#toggle-password'); const password = document.querySelector('#password');
     toggle.addEventListener('click', () => { const visible = password.type === 'text'; password.type = visible ? 'password' : 'text'; toggle.textContent = visible ? 'Mostrar' : 'Ocultar'; toggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha'); });
-    document.querySelector('#signup-form').addEventListener('submit', event => { event.preventDefault(); const button = event.currentTarget.querySelector('.submit'); button.disabled = true; button.textContent = 'Conta criada!'; document.querySelector('#notice').textContent = 'Tudo pronto. Vamos personalizar sua agenda.'; });
+    const erro = new URLSearchParams(location.search).get('erro');
+    const mensagens = { nome: 'Informe seu nome.', email: 'Informe um e-mail válido.', senha: 'A senha precisa ter pelo menos 10 caracteres.', existe: 'Este e-mail já está cadastrado.' };
+    if (mensagens[erro]) { document.querySelector('#notice').textContent = mensagens[erro]; history.replaceState(null, '', location.pathname); }
+    document.querySelector('#signup-form').addEventListener('submit', event => { const button = event.currentTarget.querySelector('.submit'); button.disabled = true; button.textContent = 'Criando conta…'; });
   </script>
 </body>
 </html>

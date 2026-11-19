@@ -12,7 +12,9 @@ class Usuario(Base):
     """Um login do painel. papel: admin | usuario | leitor."""
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True)
-    username = Column(String(50), nullable=False, unique=True, index=True)
+    username = Column(String(254), nullable=False, unique=True, index=True)
+    nome = Column(String(120), nullable=True)
+    email = Column(String(254), nullable=True, unique=True)
     senha_hash = Column(Text, nullable=False)
     papel = Column(String(20), nullable=False, default="usuario")
     ativo = Column(Boolean, default=True, nullable=False)

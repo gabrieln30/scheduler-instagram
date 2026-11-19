@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
+import re
 from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
@@ -11,6 +12,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import func, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import Auth
@@ -27,6 +29,7 @@ from storage import salvar_imagem, ImagemInvalida
 TZ_LOCAL = ZoneInfo("America/Sao_Paulo")
 MAX_BYTES = 8 * 1024 * 1024
 Papel = Literal["admin", "usuario", "leitor"]
+RE_EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 def _migrar():
@@ -34,6 +37,10 @@ def _migrar():
     if engine.dialect.name != "postgresql":
         return
     with engine.begin() as con:
+        con.execute(text("ALTER TABLE usuarios ALTER COLUMN username TYPE VARCHAR(254)"))
+        con.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nome VARCHAR(120)"))
+        con.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email VARCHAR(254)"))
+        con.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_email ON usuarios (email) WHERE email IS NOT NULL"))
         con.execute(text("ALTER TABLE contas ADD COLUMN IF NOT EXISTS usuario_id INTEGER REFERENCES usuarios(id)"))
         con.execute(text("CREATE INDEX IF NOT EXISTS ix_contas_usuario_id ON contas (usuario_id)"))
         for col, tipo in (("cliente_id", "INTEGER REFERENCES clientes(id)"), ("dia", "DATE"), ("pauta_grupo", "VARCHAR(30)"),
@@ -95,6 +102,53 @@ def pagina_login(request: Request, db: Session = Depends(get_db)):
     return FileResponse("static/login.html")
 
 
+@app.get("/criar-conta", include_in_schema=False)
+def pagina_criar_conta(request: Request, db: Session = Depends(get_db)):
+    """Tela pública para criar uma conta de usuário."""
+    if usuario_logado(request, db):
+        return RedirectResponse("/painel/")
+    return FileResponse("static/criar-conta.html")
+
+
+@app.post("/criar-conta", include_in_schema=False)
+def cadastrar_conta(
+    request: Request,
+    nome: str = Form(...),
+    sobrenome: str = Form(""),
+    email: str = Form(...),
+    senha: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    nome_completo = " ".join((nome.strip(), sobrenome.strip())).strip()
+    email_normalizado = email.strip().lower()
+    if not nome_completo or len(nome_completo) > 120:
+        return RedirectResponse("/criar-conta?erro=nome", status_code=303)
+    if len(email_normalizado) > 254 or not RE_EMAIL.fullmatch(email_normalizado):
+        return RedirectResponse("/criar-conta?erro=email", status_code=303)
+    if len(senha) < SENHA_MIN:
+        return RedirectResponse("/criar-conta?erro=senha", status_code=303)
+    if db.query(Usuario).filter(Usuario.email == email_normalizado).first():
+        return RedirectResponse("/criar-conta?erro=existe", status_code=303)
+
+    usuario = Usuario(
+        username=email_normalizado,
+        nome=nome_completo,
+        email=email_normalizado,
+        senha_hash=Auth.gerar_hash(senha),
+        papel="usuario",
+    )
+    db.add(usuario)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return RedirectResponse("/criar-conta?erro=existe", status_code=303)
+
+    resp = RedirectResponse("/painel/", status_code=303)
+    _definir_cookie(resp, request, usuario)
+    return resp
+
+
 @app.post("/login", include_in_schema=False)
 def entrar(request: Request, usuario: str = Form(...), senha: str = Form(...), db: Session = Depends(get_db)):
     ip = Auth.ip_cliente(request)
@@ -120,7 +174,8 @@ def sair():
 
 
 def _eu(u: Usuario):
-    return {"id": u.id, "username": u.username, "papel": u.papel, "papel_nome": PAPEIS[u.papel],
+    return {"id": u.id, "username": u.username, "nome": u.nome, "email": u.email,
+            "papel": u.papel, "papel_nome": PAPEIS[u.papel],
             "pode_editar": u.papel != "leitor"}
 
 
@@ -167,7 +222,8 @@ class EditaUsuario(BaseModel):
 
 def _json_usuario(u: Usuario, db: Session):
     dono = db.get(Usuario, u.dono_id) if u.dono_id else None
-    return {"id": u.id, "username": u.username, "papel": u.papel, "papel_nome": PAPEIS[u.papel],
+    return {"id": u.id, "username": u.username, "nome": u.nome, "email": u.email,
+            "papel": u.papel, "papel_nome": PAPEIS[u.papel],
             "ativo": u.ativo, "dono_id": u.dono_id, "dono": dono.username if dono else None,
             "contas": db.query(func.count(Conta.id)).filter(Conta.usuario_id == u.id).scalar(),
             "ultimo_login": u.ultimo_login}
